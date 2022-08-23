@@ -1,5 +1,7 @@
 # vTuberry
 
+<img src="./Melon.png" />
+
 ## What is this?
 
 **vTuberry** is a minimalist tool that uses web technologies to manage and display PNGtubers.  
@@ -13,11 +15,15 @@ Unlike the other tools, **vTuberry** relies on the HTML5 canvas element and the 
 
 ## How does it work?
 
-Just open your favorite browser and open the `index.html` file. All is contained in this single file.
+If you are using OBS, you can make a browser source and link to the url of the web hosted file _(to come)_.
+
+If you are using another capture tool, you can download the `index.html` file and open it in your favorite browser. Then you can capture your window and apply a choma key to separate your avatar from the green background.
+
+You have to click the button on the page to grant permission to use your microphone.
 
 ## Who made this?
 
-I, Crazyrems, am the only creator of this piece of software, including Melon the mascot. She’s a combination of a strawberry and an apple.
+I, Crazyrems, am the only creator of this piece of software _(so far)_, including Melon the mascot. She’s a combination of a strawberry and an apple.
 
 ## Is it open source? Can I fork it and make changes? Can I make pull requests?
 
@@ -27,9 +33,7 @@ If you want to contribute, go on, I can’t tell you what to do but be aware tha
 
 ## What’s next?
 
-I plan to add a few more features, the most important being make it run within OBS browser.
-
-As for the rest of the features _(in no particular order)_:
+I plan to add a few more features, here are some of them _(in no particular order)_:
 
 - Import images from the settings,
 - Adjust mic levels and response curve,
