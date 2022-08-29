@@ -150,7 +150,7 @@
                     avatar.emotes.talking.img = new Image();
                     avatar.emotes.talking.img.src = avatar.emotes.talking.src;
                     avatar.currentEmote = null;
-                    avatar.timestampLastEmote = window.performance.now();
+                    avatar.timestampLastEmote = 0;
                 }
                 fileReader.readAsText(ev.target.files[0]);
             });
