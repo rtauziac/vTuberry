@@ -13,15 +13,26 @@
                 height: 512px;
             }
             .settingsContainer {
-                display: inline-block;
             }
             .settings {
+                position: absolute;
+                width: 512px;
+                height: 512px;
+                top: 0px;
+                left: 0px;
                 flex-direction: column;
                 display: flex;
+                opacity: 0;
+            }
+            .settings:hover {
+                opacity: 1;
             }
             .rootContainer {
                 display: flex;
                 flex-direction: row;
+            }
+            .hidden {
+                display: none;
             }
         </style>
     </head>
@@ -30,165 +41,223 @@
         <div class="rootContainer">
             <Button id="grant-button" style="position: absolute; top: 0px; left: 0px;">Grant microphone access</Button>
             <canvas id="canvas" width="512" height="512" style="visibility: hidden;"></canvas>
-            <div class="settings">
+            <div class="settings hidden">
                 <input type="file" id="idle-input" accept="image/*">
                 <input type="file" id="talking-input" accept="image/*">
                 <Button id="save-settings-button">Save settings</Button>
                 <a style="display: none" id="json-export-download"></a>
                 <input type="file" id="load-settings-input" accept="application/json">
+                <div style="display: flex; flex-direction: column;">
+                  <span>Threshold</span>
+                  <input type="range" id="threshold" step="1" min="0" max="255" value="100" />
+                </div>
+                <div>
+                  <input type="checkbox" id="enable-debug-curve-response" style="margin-right: 1em;" checked />
+                  <span>Enable debug curve response</span>
+                </div>
             </div>
         </div>
         <script>
-            var canvas = document.getElementById('canvas');
-            var grantMicrophoneButton = document.getElementById('grant-button');
-            var context = canvas.getContext('2d');
-            var debugText = document.getElementById('debug-text');
-            const WIDTH = 512;
-            const HEIGHT = 512;
-            const ANIM_DURATION = 450;
-            context.width = WIDTH;
-            context.HEIGHT = HEIGHT;
-            
-            var analyser = null;
+          var canvas = document.getElementById('canvas');
+          var settingsContainer = document.getElementsByClassName('settings')[0];
+          var grantMicrophoneButton = document.getElementById('grant-button');
+          var curveResponseSmoothness = 0.5;
+          var threshold = 100;
+          var average = 0;
+          var context = canvas.getContext('2d');
+          var debugText = document.getElementById('debug-text');
+          var debugCurveResponse = true;
+          const WIDTH = 512;
+          const HEIGHT = 512;
+          const ANIM_DURATION = 450;
+          const FREQUENCY_BIN_SUBDIVISION = 1;
+          var bufferLength = 0;
+          var buffer = [];
 
-            async function getMedia(constraints) {
-                try {
-                    var media = await navigator.mediaDevices.getUserMedia(constraints);
-                    //alert('granted');
-                    var audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    var sourceMicro = audioContext.createMediaStreamSource(media);
-                    analyser = audioContext.createAnalyser();
-                    sourceMicro.connect(analyser);
-                    
-                } catch (err) {
-                    //alert('denied');
-                }
+          context.width = WIDTH;
+          context.HEIGHT = HEIGHT;
+
+          var analyser = null;
+
+          async function getMedia(constraints) {
+            try {
+              var media = await navigator.mediaDevices.getUserMedia(constraints);
+              //alert('granted');
+              var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+              var sourceMicro = audioContext.createMediaStreamSource(media);
+              analyser = audioContext.createAnalyser();
+              analyser.smoothingTimeConstant = curveResponseSmoothness;
+              bufferLength = Math.floor(analyser.frequencyBinCount / FREQUENCY_BIN_SUBDIVISION);
+              buffer = new Uint8Array(bufferLength);
+              sourceMicro.connect(analyser);
+
+            } catch (err) {
+              //alert('denied');
+            }
+          }
+
+          function initMicrophone() {
+            getMedia({audio: true, video: false});
+          }
+
+          grantMicrophoneButton.addEventListener('click', ev => {
+            initMicrophone();
+            ev.target.remove();
+            canvas.style = '';
+            settingsContainer.classList.remove('hidden');
+          });
+
+          var avatar = {
+            emotes: {
+              idle: {
+                img: new Image(),
+                src: null,
+              },
+              talking: {
+                img: new Image(),
+                src: null,
+              }
+            },
+            currentEmote: null,
+            timestampLastEmote: 0, // timestamp of last emote
+          };
+          const draw = (timestamp) => {
+            // clear canvas
+            context.clearRect(0, 0, WIDTH, HEIGHT);
+            context.fillStyle = '#0000' + (Math.floor(timestamp / 10.0) % 255).toString(16).padStart(2, "0");
+            //context.fillRect(0, 0, WIDTH, HEIGHT);
+            var currentAvatar = avatar.currentEmote;
+            if (currentAvatar) {
+              context.src = currentAvatar.img;
+
+              context.resetTransform();
+              context.translate(WIDTH / 2, HEIGHT / 2);
+              // add lerp
+              var progress = (timestamp - avatar.timestampLastEmote) / ANIM_DURATION;
+              progress = Math.min(progress, 1.0);
+              progress = 1 - progress;
+              progress *= progress;
+              progress = 1 - progress;
+              var lerpedX = 0.9 + (0.1) * progress;
+              var lerpedY = 1.1 + (-0.1) * progress;
+              context.scale(lerpedX, lerpedY);
+              context.translate(-WIDTH / 2, -HEIGHT / 2);
+
+              context.drawImage(context.src, 0, 0);
+            }
+            context.resetTransform();
+            if (debugCurveResponse) {
+              context.strokeStyle = '#0033FF';
+              context.lineWidth = 1;
+              context.beginPath();
+              context.moveTo(0, HEIGHT);
+              for (var i = 0; i < bufferLength; i++) {
+                var x = i * WIDTH / bufferLength;
+                var y = HEIGHT - (buffer[i] / 255.0) * HEIGHT;
+                context.lineTo(x, y);
+              }
+              context.stroke();
+
+              context.strokeStyle = '#FF3300';
+              context.beginPath();
+              context.moveTo(0, HEIGHT - threshold * 2);
+              context.lineTo(WIDTH, HEIGHT - threshold * 2);
+              context.stroke();
+
+              context.strokeStyle = '#3366FF';
+              context.lineWidth = 3;
+              context.moveTo(0, HEIGHT - average * 2);
+              context.lineTo(WIDTH, HEIGHT - average * 2);
+              context.stroke();
             }
 
-            function initMicrophone() {
-                getMedia({audio: true, video: false});
+            window.requestAnimationFrame(draw);
+          }
+
+          // Settings
+          document.getElementById("idle-input").addEventListener("change", ev => {
+            var idleFileReader = new FileReader();
+            idleFileReader.onload = function (e) {
+              avatar.emotes.idle.img.src = e.target.result;
+              avatar.emotes.idle.src = e.target.result;
             }
-
-            grantMicrophoneButton.addEventListener('click', ev => {
-                initMicrophone();
-                ev.target.remove();
-                canvas.style = '';
-            });
-
-            var avatar = {
-                emotes: {
-                    idle: {
-                        img: new Image(),
-                        src: null,
-                    },
-                    talking: {
-                        img: new Image(),
-                        src: null,
-                    }
-                },
-                currentEmote: null,
-                timestampLastEmote: 0, // timestamp of last emote
-            };
-            const draw = (timestamp) => {
-                // clear canvas
-                context.clearRect(0, 0, WIDTH, HEIGHT);
-                context.fillStyle = '#0000' + (Math.floor(timestamp / 10.0) % 255).toString(16).padStart(2, "0");
-                //context.fillRect(0, 0, WIDTH, HEIGHT);
-                var currentAvatar = avatar.currentEmote;
-                if (currentAvatar) {
-                    context.src = currentAvatar.img;
-
-                    context.resetTransform();
-                    context.translate(WIDTH / 2, HEIGHT / 2);
-                    // add lerp
-                    var progress = (timestamp - avatar.timestampLastEmote) / ANIM_DURATION;
-                    progress = Math.min(progress, 1.0);
-                    progress = 1 - progress;
-                    progress *= progress;
-                    progress = 1 - progress;
-                    var lerpedX = 0.9 + (0.1) * progress;
-                    var lerpedY = 1.1 + (-0.1) * progress;
-                    context.scale(lerpedX, lerpedY);
-                    context.translate(-WIDTH / 2, -HEIGHT / 2);
-
-                    context.drawImage(context.src, 0, 0);
-                }
-                window.requestAnimationFrame(draw);
+            idleFileReader.readAsDataURL(ev.target.files[0]);
+          });
+          document.getElementById("talking-input").addEventListener("change", ev => {
+            var talkingFileReader = new FileReader();
+            talkingFileReader.onload = function (e) {
+              avatar.emotes.talking.img.src = e.target.result;
+              avatar.emotes.talking.src = e.target.result;
             }
+            talkingFileReader.readAsDataURL(ev.target.files[0]);
+          });
+          document.getElementById("save-settings-button").addEventListener("click", ev => {
+            var a = document.getElementById("json-export-download");
+            var file = new Blob([JSON.stringify({
+                avatar,
+                threshold,
+              })], {type: "application/json"});
+            a.href = URL.createObjectURL(file);
+            a.download = "settings.json";
+            a.click();
+          });
+          document.getElementById("load-settings-input").addEventListener("change", ev => {
+            var fileReader = new FileReader();
+            fileReader.onload = function (e) {
+              var json = JSON.parse(e.target.result);
+              avatar = json.avatar;
+              avatar.emotes.idle.img = new Image();
+              avatar.emotes.idle.img.src = avatar.emotes.idle.src;
+              avatar.emotes.talking.img = new Image();
+              avatar.emotes.talking.img.src = avatar.emotes.talking.src;
+              avatar.currentEmote = null;
+              avatar.timestampLastEmote = 0;
+              threshold = json.threshold;
+              document.getElementById("threshold").value = threshold;
+            }
+            fileReader.readAsText(ev.target.files[0]);
+          });
+          document.getElementById("enable-debug-curve-response").addEventListener("change", ev => {
+            debugCurveResponse = ev.target.checked;
+          });
+          document.getElementById("threshold").addEventListener("input", ev => {
+            threshold = ev.target.value;
+          });
 
-            // Settings
-            document.getElementById("idle-input").addEventListener("change", ev => {
-                var idleFileReader = new FileReader();
-                idleFileReader.onload = function (e) {
-                    avatar.emotes.idle.img.src = e.target.result;
-                    avatar.emotes.idle.src = e.target.result;
+          // draw loop
+          window.addEventListener('load', () => {
+            window.requestAnimationFrame(draw);
+
+            debugText.innerHTML = 'debug';
+          });
+
+          // process loop
+          setInterval(function() {
+            if (analyser) {
+              // get average level from analyser
+              var sum = 0;
+              var frequencyData = new Uint8Array(bufferLength);
+              analyser.getByteFrequencyData(frequencyData);
+              for (var i = 0; i < bufferLength; i++) {
+                buffer[i] = frequencyData[i];
+                sum += frequencyData[i];
+              }
+              average = sum / bufferLength;
+              // debug
+              debugText.innerHTML = '' + average;
+
+              // set current emote
+              var speaking = average > threshold;
+              // check if there is a change
+              var emote = speaking ? avatar.emotes.talking : avatar.emotes.idle;
+              if (emote != avatar.currentEmote) {
+                avatar.currentEmote = emote;
+                if (speaking) {
+                  avatar.timestampLastEmote = window.performance.now();
                 }
-                idleFileReader.readAsDataURL(ev.target.files[0]);
-            });
-            document.getElementById("talking-input").addEventListener("change", ev => {
-                var talkingFileReader = new FileReader();
-                talkingFileReader.onload = function (e) {
-                    avatar.emotes.talking.img.src = e.target.result;
-                    avatar.emotes.talking.src = e.target.result;
-                }
-                talkingFileReader.readAsDataURL(ev.target.files[0]);
-            });
-            document.getElementById("save-settings-button").addEventListener("click", ev => {
-                var a = document.getElementById("json-export-download");
-                var file = new Blob([JSON.stringify(avatar)], {type: "application/json"});
-                a.href = URL.createObjectURL(file);
-                a.download = "settings.json";
-                a.click();
-            });
-            document.getElementById("load-settings-input").addEventListener("change", ev => {
-                var fileReader = new FileReader();
-                fileReader.onload = function (e) {
-                    var json = JSON.parse(e.target.result);
-                    avatar = json;
-                    avatar.emotes.idle.img = new Image();
-                    avatar.emotes.idle.img.src = avatar.emotes.idle.src;
-                    avatar.emotes.talking.img = new Image();
-                    avatar.emotes.talking.img.src = avatar.emotes.talking.src;
-                    avatar.currentEmote = null;
-                    avatar.timestampLastEmote = 0;
-                }
-                fileReader.readAsText(ev.target.files[0]);
-            });
-
-            // draw loop
-            window.addEventListener('load', () => {
-                window.requestAnimationFrame(draw);
-
-                debugText.innerHTML = 'debug';
-            });
-
-            // process loop
-            setInterval(function() {
-                if (analyser) {
-                    // get average level from analyser
-                    var sum = 0;
-                    var bufferLength = Math.floor(analyser.frequencyBinCount / 20);
-                    var frequencyData = new Uint8Array(bufferLength);
-                    analyser.getByteFrequencyData(frequencyData);
-                    for (var i = 0; i < bufferLength; i++) {
-                        sum += frequencyData[i];
-                    }
-                    var average = sum / bufferLength;
-                    // debug
-                    debugText.innerHTML = '' + average;
-
-                    // set current emote
-                    var speaking = average > 100;
-                    // check if there is a change
-                    var emote = speaking ? avatar.emotes.talking : avatar.emotes.idle;
-                    if (emote != avatar.currentEmote) {
-                        avatar.currentEmote = emote;
-                        if (speaking) {
-                            avatar.timestampLastEmote = window.performance.now();
-                        }
-                    }
-                }
-            }, 1000 / 30);
+              }
+            }
+          }, 1000 / 30);
         </script>
     </body>
 </html>
