@@ -6,6 +6,30 @@
             body {
                 margin: 0px;
                 background-color: #00FF00;
+                font-family: sans-serif;
+            }
+            .inputfile {
+                width: 0.1px;
+                height: 0.1px;
+                opacity: 0;
+                overflow: hidden;
+                position: absolute;
+                z-index: -1;
+            }
+            .inputfile + label {
+                font-size: 1.25em;
+                font-weight: 700;
+                color: white;
+                background-color: black;
+                display: inline-block;
+                cursor: pointer;
+                padding: 4px 8px;
+                margin: 3px;
+                border-radius: 5px;
+            }
+            .inputfile:focus + label,
+            .inputfile + label:hover {
+                background-color: red;
             }
             #canvas {
                 display: inline-block;
@@ -22,7 +46,7 @@
                 left: 0px;
                 flex-direction: column;
                 display: flex;
-                opacity: 0;
+                opacity: 1;
             }
             .settings:hover {
                 opacity: 1;
@@ -42,18 +66,25 @@
             <Button id="grant-button" style="position: absolute; top: 0px; left: 0px;">Grant microphone access</Button>
             <canvas id="canvas" width="512" height="512" style="visibility: hidden;"></canvas>
             <div class="settings hidden">
-                <input type="file" id="idle-input" accept="image/*">
-                <input type="file" id="talking-input" accept="image/*">
+                <input type="file" id="idle-input" accept="image/*" class="inputfile">
+                <label for="idle-input">Idle image</label>
+                <input type="file" id="talking-input" accept="image/*" class="inputfile">
+                <label for="talking-input">Speaking image</label>
                 <Button id="save-settings-button">Save settings</Button>
                 <a style="display: none" id="json-export-download"></a>
-                <input type="file" id="load-settings-input" accept="application/json">
+                <input type="file" id="load-settings-input" accept="application/json" class="inputfile">
+                <label for="load-settings-input">Load settings</label>
                 <div style="display: flex; flex-direction: column;">
                   <span>Threshold</span>
                   <input type="range" id="threshold" step="1" min="0" max="255" value="100" />
+                  <span>Minimum frequency</span>
+                  <input type="range" id="buffer-min-frequency" step="0.01" min="0.0" max="1.0" value="0.0" />
+                  <span>Maximum frequency</span>
+                  <input type="range" id="buffer-max-frequency" step="0.01" min="0.0" max="1.0" value="1.0" />
                 </div>
                 <div>
                   <input type="checkbox" id="enable-debug-curve-response" style="margin-right: 1em;" checked />
-                  <span>Enable debug curve response</span>
+                  <span>Show microphone levels</span>
                 </div>
             </div>
         </div>
@@ -73,6 +104,8 @@
           const FREQUENCY_BIN_SUBDIVISION = 1;
           var bufferLength = 0;
           var buffer = [];
+          var bufferMinFrequency = 0.0;
+          var bufferMaxFrequency = 1.0;
 
           context.width = WIDTH;
           context.HEIGHT = HEIGHT;
@@ -164,6 +197,20 @@
               context.lineTo(WIDTH, HEIGHT - threshold * 2);
               context.stroke();
 
+              var bufferMinValue = bufferMinFrequency * WIDTH;
+              context.strokeStyle = '#FF6600';
+              context.beginPath();
+              context.moveTo(bufferMinValue, 0);
+              context.lineTo(bufferMinValue, HEIGHT);
+              context.stroke();
+
+              var bufferMaxValue = bufferMaxFrequency * WIDTH;
+              context.strokeStyle = '#FF6600';
+              context.beginPath();
+              context.moveTo(bufferMaxValue, 0);
+              context.lineTo(bufferMaxValue, HEIGHT);
+              context.stroke();
+
               context.strokeStyle = '#3366FF';
               context.lineWidth = 3;
               context.moveTo(0, HEIGHT - average * 2);
@@ -196,6 +243,8 @@
             var file = new Blob([JSON.stringify({
                 avatar,
                 threshold,
+                bufferMinFrequency,
+                bufferMaxFrequency
               })], {type: "application/json"});
             a.href = URL.createObjectURL(file);
             a.download = "settings.json";
@@ -214,6 +263,10 @@
               avatar.timestampLastEmote = 0;
               threshold = json.threshold;
               document.getElementById("threshold").value = threshold;
+              bufferMinFrequency = json.bufferMinFrequency;
+              document.getElementById("buffer-min-frequency").value = bufferMinFrequency;
+              bufferMaxFrequency = json.bufferMaxFrequency;
+              document.getElementById("buffer-max-frequency").value = bufferMaxFrequency;
             }
             fileReader.readAsText(ev.target.files[0]);
           });
@@ -222,6 +275,12 @@
           });
           document.getElementById("threshold").addEventListener("input", ev => {
             threshold = ev.target.value;
+          });
+          document.getElementById("buffer-min-frequency").addEventListener("input", ev => {
+            bufferMinFrequency = ev.target.value;
+          });
+          document.getElementById("buffer-max-frequency").addEventListener("input", ev => {
+            bufferMaxFrequency = ev.target.value;
           });
 
           // draw loop
@@ -238,13 +297,15 @@
               var sum = 0;
               var frequencyData = new Uint8Array(bufferLength);
               analyser.getByteFrequencyData(frequencyData);
-              for (var i = 0; i < bufferLength; i++) {
+              var minValue = Math.floor(bufferMinFrequency * bufferLength);
+              var maxValue = bufferMaxFrequency * bufferLength;
+              for (var i = minValue; i < maxValue ; i++) {
                 buffer[i] = frequencyData[i];
                 sum += frequencyData[i];
               }
-              average = sum / bufferLength;
+              average = sum / (maxValue - minValue);
               // debug
-              debugText.innerHTML = '' + average;
+              debugText.innerHTML = '' + minValue;
 
               // set current emote
               var speaking = average > threshold;

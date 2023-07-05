@@ -9,7 +9,10 @@
 - [x] Add settings for mic levels
     - [ ] ~~Weight the level to prioritize the most recent samples~~
     - [x] Change the analyser smoothing setting
+    - [ ] Add a slider for analyser smoothing
+    - [x] Add sliders for windowing analyser
 - [ ] Blink eyes
-- [ ] Import images
-    - [ ] Json config
+- [x] Import images
+    - [x] Json config
 - [ ] Open source
+- [ ] Better UI/CSS
