@@ -6,6 +6,30 @@
             body {
                 margin: 0px;
                 background-color: #00FF00;
+                font-family: sans-serif;
+            }
+            .inputfile {
+                width: 0.1px;
+                height: 0.1px;
+                opacity: 0;
+                overflow: hidden;
+                position: absolute;
+                z-index: -1;
+            }
+            .inputfile + label {
+                font-size: 1.25em;
+                font-weight: 700;
+                color: white;
+                background-color: black;
+                display: inline-block;
+                cursor: pointer;
+                padding: 4px 8px;
+                margin: 3px;
+                border-radius: 5px;
+            }
+            .inputfile:focus + label,
+            .inputfile + label:hover {
+                background-color: red;
             }
             #canvas {
                 display: inline-block;
@@ -42,11 +66,14 @@
             <Button id="grant-button" style="position: absolute; top: 0px; left: 0px;">Grant microphone access</Button>
             <canvas id="canvas" width="512" height="512" style="visibility: hidden;"></canvas>
             <div class="settings hidden">
-                <input type="file" id="idle-input" accept="image/*">
-                <input type="file" id="talking-input" accept="image/*">
+                <input type="file" id="idle-input" accept="image/*" class="inputfile">
+                <label for="idle-input">Idle image</label>
+                <input type="file" id="talking-input" accept="image/*" class="inputfile">
+                <label for="talking-input">Speaking image</label>
                 <Button id="save-settings-button">Save settings</Button>
                 <a style="display: none" id="json-export-download"></a>
-                <input type="file" id="load-settings-input" accept="application/json">
+                <input type="file" id="load-settings-input" accept="application/json" class="inputfile">
+                <label for="load-settings-input">Load settings</label>
                 <div style="display: flex; flex-direction: column;">
                   <span>Threshold</span>
                   <input type="range" id="threshold" step="1" min="0" max="255" value="100" />
