@@ -81,9 +81,13 @@
                   <input type="range" id="buffer-min-frequency" step="0.01" min="0.0" max="1.0" value="0.0" />
                   <span>Maximum frequency</span>
                   <input type="range" id="buffer-max-frequency" step="0.01" min="0.0" max="1.0" value="1.0" />
+                  <span>Curve response smoothness</span>
+                  <input type="range" id="curve-response-smoothness" step="0.01" min="0.0" max="0.8" value="0.5" />
+                  <span>Squash scale</span>
+                  <input type="range" id="squash-scale" step="0.01" min="0.0" max="0.8" value="0.1" />
                 </div>
                 <div>
-                  <input type="checkbox" id="enable-debug-curve-response" style="margin-right: 1em;" checked />
+                  <input type="checkbox" id="enable-debug-curve-response" style="margin-right: 1em;" />
                   <span>Show microphone levels</span>
                 </div>
             </div>
@@ -97,7 +101,7 @@
           var average = 0;
           var context = canvas.getContext('2d');
           var debugText = document.getElementById('debug-text');
-          var debugCurveResponse = true;
+          var debugCurveResponse = false;
           const WIDTH = 512;
           const HEIGHT = 512;
           const ANIM_DURATION = 450;
@@ -106,6 +110,7 @@
           var buffer = [];
           var bufferMinFrequency = 0.0;
           var bufferMaxFrequency = 1.0;
+          var squashScale = 0.1;
 
           context.width = WIDTH;
           context.HEIGHT = HEIGHT;
@@ -171,10 +176,11 @@
               progress = 1 - progress;
               progress *= progress;
               progress = 1 - progress;
-              var lerpedX = 0.9 + (0.1) * progress;
-              var lerpedY = 1.1 + (-0.1) * progress;
+              var lerpedX = (1 - squashScale) + (squashScale * progress);
+              var lerpedY = (1 + squashScale) - (squashScale * progress);
               context.scale(lerpedX, lerpedY);
               context.translate(-WIDTH / 2, -HEIGHT / 2);
+              context.scale(HEIGHT / currentAvatar.img.height, HEIGHT / currentAvatar.img.height);
 
               context.drawImage(context.src, 0, 0);
             }
@@ -244,7 +250,9 @@
                 avatar,
                 threshold,
                 bufferMinFrequency,
-                bufferMaxFrequency
+                bufferMaxFrequency,
+                curveResponseSmoothness,
+                squashScale
               })], {type: "application/json"});
             a.href = URL.createObjectURL(file);
             a.download = "settings.json";
@@ -262,11 +270,15 @@
               avatar.currentEmote = null;
               avatar.timestampLastEmote = 0;
               threshold = json.threshold;
-              document.getElementById("threshold").value = threshold;
+              document.getElementById("threshold").value = threshold ?? 100;
               bufferMinFrequency = json.bufferMinFrequency;
-              document.getElementById("buffer-min-frequency").value = bufferMinFrequency;
+              document.getElementById("buffer-min-frequency").value = bufferMinFrequency ?? 0.0;
               bufferMaxFrequency = json.bufferMaxFrequency;
-              document.getElementById("buffer-max-frequency").value = bufferMaxFrequency;
+              document.getElementById("buffer-max-frequency").value = bufferMaxFrequency ?? 1.0;
+              curveResponseSmoothness = json.curveResponseSmoothness;
+              document.getElementById("curve-response-smoothness").value = curveResponseSmoothness ?? 0.5;
+              squashScale = json.squashScale;
+              document.getElementById("squash-scale").value = squashScale ?? 0.1;
             }
             fileReader.readAsText(ev.target.files[0]);
           });
@@ -274,13 +286,20 @@
             debugCurveResponse = ev.target.checked;
           });
           document.getElementById("threshold").addEventListener("input", ev => {
-            threshold = ev.target.value;
+            threshold = parseFloat(ev.target.value);
           });
           document.getElementById("buffer-min-frequency").addEventListener("input", ev => {
-            bufferMinFrequency = ev.target.value;
+            bufferMinFrequency = parseFloat(ev.target.value);
           });
           document.getElementById("buffer-max-frequency").addEventListener("input", ev => {
-            bufferMaxFrequency = ev.target.value;
+            bufferMaxFrequency = parseFloat(ev.target.value);
+          });
+          document.getElementById("curve-response-smoothness").addEventListener("input", ev => {
+            curveResponseSmoothness = parseFloat(ev.target.value);
+            analyser.smoothingTimeConstant = curveResponseSmoothness;
+          });
+          document.getElementById("squash-scale").addEventListener("input", ev => {
+            squashScale = parseFloat(ev.target.value);
           });
 
           // draw loop
