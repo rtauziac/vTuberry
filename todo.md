@@ -9,7 +9,7 @@
 - [x] Add settings for mic levels
     - [ ] ~~Weight the level to prioritize the most recent samples~~
     - [x] Change the analyser smoothing setting
-    - [ ] Add a slider for analyser smoothing
+    - [x] Add a slider for analyser smoothing
     - [x] Add sliders for windowing analyser
 - [ ] Blink eyes
 - [x] Import images
