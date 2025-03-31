@@ -175,6 +175,7 @@
               var lerpedY = 1.1 + (-0.1) * progress;
               context.scale(lerpedX, lerpedY);
               context.translate(-WIDTH / 2, -HEIGHT / 2);
+              context.scale(HEIGHT / currentAvatar.img.height, HEIGHT / currentAvatar.img.height);
 
               context.drawImage(context.src, 0, 0);
             }
