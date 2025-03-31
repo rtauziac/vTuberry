@@ -81,6 +81,8 @@
                   <input type="range" id="buffer-min-frequency" step="0.01" min="0.0" max="1.0" value="0.0" />
                   <span>Maximum frequency</span>
                   <input type="range" id="buffer-max-frequency" step="0.01" min="0.0" max="1.0" value="1.0" />
+                  <span>Curve response smoothness</span>
+                  <input type="range" id="curve-response-smoothness" step="0.01" min="0.0" max="0.8" value="0.5" />
                   <span>Squash scale</span>
                   <input type="range" id="squash-scale" step="0.01" min="0.0" max="0.8" value="0.1" />
                 </div>
@@ -249,6 +251,7 @@
                 threshold,
                 bufferMinFrequency,
                 bufferMaxFrequency,
+                curveResponseSmoothness,
                 squashScale
               })], {type: "application/json"});
             a.href = URL.createObjectURL(file);
@@ -272,6 +275,8 @@
               document.getElementById("buffer-min-frequency").value = bufferMinFrequency ?? 0.0;
               bufferMaxFrequency = json.bufferMaxFrequency;
               document.getElementById("buffer-max-frequency").value = bufferMaxFrequency ?? 1.0;
+              curveResponseSmoothness = json.curveResponseSmoothness;
+              document.getElementById("curve-response-smoothness").value = curveResponseSmoothness ?? 0.5;
               squashScale = json.squashScale;
               document.getElementById("squash-scale").value = squashScale ?? 0.1;
             }
@@ -288,6 +293,10 @@
           });
           document.getElementById("buffer-max-frequency").addEventListener("input", ev => {
             bufferMaxFrequency = parseFloat(ev.target.value);
+          });
+          document.getElementById("curve-response-smoothness").addEventListener("input", ev => {
+            curveResponseSmoothness = parseFloat(ev.target.value);
+            analyser.smoothingTimeConstant = curveResponseSmoothness;
           });
           document.getElementById("squash-scale").addEventListener("input", ev => {
             squashScale = parseFloat(ev.target.value);
